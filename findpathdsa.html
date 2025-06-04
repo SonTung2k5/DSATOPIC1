@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Shortest Path in HUST Using Dijkstra</title>
+
+    <script src="https://maps.gomaps.pro/maps/api/js?key=AlzaSyybH7KNrXgfA3tyI8y3lYKAOFmPZWmNZGQ&callback=initMap&libraries=drawing,geometry" async defer></script>
+    <!-- thêm Google Font Roboto -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+    <style>
+        html, body { height:100%; margin:0; padding:0; font-family:'Roboto',sans-serif; }
+        #map { height:100%; width:100%; }
+        body {
+             font-family: Arial, sans-serif;
+             margin: 15px;
+             background-color: #f4f4f4;
+        }
+        /* control panel nổi */
+        #controls {
+            position:absolute;
+            top:15px; left:50%;
+            transform:translateX(-50%);
+            width:360px;           /* was 320px */
+            background:rgba(255,255,255,0.9);
+            border-radius:8px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.3);
+            padding:12px;
+            z-index:10;
+        }
+        #instructions {
+            margin:0 0 8px;
+            font-size:1em;
+            color:#333;
+        }
+        #output {
+            margin:0;
+            max-height:120px;      /* was 80px */
+            min-height:80px;       /* ensure enough space */
+            overflow-y:auto;
+            font-family:Consolas,monospace;
+            font-size:0.9em;
+            line-height:1.4;
+        }
+        button#resetButton {
+            width:100%;
+            padding:8px;
+            margin-top:8px;
+            background:#fff;
+            color:#444;
+            border:1px solid #ccc;
+            border-radius:4px;
+            font-weight:500;
+            cursor:pointer;
+            transition:background .2s, box-shadow .2s;
+        }
+         button#resetButton:hover {
+            background:#f7f7f7;
+            box-shadow:0 1px 3px rgba(0,0,0,0.2);
+         }
+        h2 {
+             display:none;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Find Shortest Path in HUST</h2>
+
+<div id="controls">
+    <div id="instructions">1. Click on the map to select the start point.</div>
+    <button id="resetButton" style="display:none;" onclick="resetSelection()">Reset Selection</button>
+    <div id="output">No point selected or path not found...</div>
+</div>
+
+<div id="map">
+    </div>
+
+<script> // Bắt đầu mã JavaScript
+    // ============================================
+    // == DỮ LIỆU ĐỊA ĐIỂM VÀ KẾT NỐI (ĐỒ THỊ) ==
+    // ============================================
+    var locations = { // khai báo object locations chứa các địa điểm (properties) 
+            "Tòa C1" : {lat:21.00700251977763, lng:105.84312059532897}, 
+            "Tòa C2" : {lat:21.00657101185019, lng:105.84244914140854},
+            "Tòa C3" : {lat:21.006636637466436, lng:105.84383986442501},
+            "Tòa C4" : {lat:21.006205958051957, lng:105.84380231350325},
+            "Tòa C5" : {lat:21.00579349880187, lng:105.84406992456093},
+            "Tòa C6" : {lat:21.006665164580117, lng:105.84473468261287},
+            "Tòa C7" : {lat:21.005289511288062, lng:105.84517981529504},
+            "Tòa C8" : {lat:21.006220787398348, lng:105.84498695048319},
+            "Tòa C9" : {lat:21.005814896289955, lng:105.84192614358128},
+            "Tòa C10" :{lat:21.005527287669175, lng:105.84362514658626},
+            "Tòa D4" : {lat:21.004263447178527, lng:105.84207391594293},
+            "Tòa D6" : {lat:21.004366316246806, lng:105.84269679345529},
+            "Tòa D8" : {lat:21.00398610272683, lng:105.8429580396666},
+            "Tòa D3" : {lat:21.004798431408904, lng:105.8446734279063},
+            "Tòa D3-5" : {lat:21.004601754573514, lng:105.84526538818828},
+            "Tòa D5" : {lat:21.00441977800511, lng:105.8448703745154},
+            "Tòa D7" : {lat:21.00411524117634, lng:105.84484590559596},
+            "Tòa D9" : {lat:21.003823965593302, lng:105.84446633668058},
+            "Thư Viện": {lat:21.004461859026915, lng:105.84398406359864},
+            "điểm 1":{lat:21.007260665317496,lng:105.84309337911755},
+            "điểm 2":{lat:21.007240633828477, lng:105.84264008581681},
+            "điểm 3":{lat:21.00709790939137, lng:105.84217069926278},
+            "điểm 4":{lat:21.006872554737107, lng:105.84176568569028},
+            "điểm 5":{lat:21.006371765402182, lng:105.84175227464586},
+            "điểm 6":{lat:21.005688185235975, lng:105.84175763905816},
+            "điểm 7":{lat:21.005099752915267, lng:105.8417469102228},
+            "điểm 8":{lat:21.005129800578914, lng:105.84237454710076},
+            "điểm 9":{lat:21.005072209218294, lng:105.84253279742468},
+            "điểm 10":{lat:21.005069705245596,lng:105.84303973490303},
+            "điểm 11":{lat:21.004443710736894, lng:105.84303973492396},
+            "điểm 12":{lat:21.004178288267614, lng:105.84302632387795},
+            "điểm 13":{lat:21.00418580023047, lng:105.84262935696368},
+            "điểm 14":{lat:21.00371254582509, lng:105.84303705272087},
+            "điểm 15":{lat:21.003705033838415, lng:105.84366200738995},
+            "điểm 16":{lat:21.00411568855588, lng:105.84370760494093},
+            "điểm 17":{lat:21.004416166901503, lng:105.84370492273203},
+            "điểm 18":{lat:21.005004601926586, lng:105.84372101600907},
+            "điểm 19":{lat:21.00411568856349, lng:105.84448812777816},
+            "điểm 20":{lat:21.004200824156186, lng:105.84460882717777},
+            "điểm 21":{lat:21.00463651731137, lng:105.84460346276},
+            "điểm 22":{lat:21.00463651731137, lng:105.84506480268739},
+            "điểm 23":{lat:21.004561397892605, lng:105.84545640518391},
+            "điểm 24":{lat:21.00503721178359, lng:105.84545683193423},
+            "điểm 25":{lat:21.005043296388585, lng:105.84461596341364},
+            "điểm 26":{lat:21.005694867091606, lng:105.8446501023574},
+            "điểm 27":{lat:21.00570017879754, lng:105.84509011543376},
+            "điểm 28":{lat:21.005690131525004, lng:105.84417535370564},
+            "điểm 29":{lat:21.00612206440561, lng:105.84465278691044},
+            "điểm 30":{lat:21.006127072315667, lng:105.84508596364458},
+            "điểm 31":{lat:21.006117056496045, lng:105.84417803592014},
+            "điểm 32":{lat:21.006497657199525, lng: 105.84464205806586},
+            "điểm 33":{lat:21.006501413122617, lng:105.84421156354058},
+            "điểm 34":{lat:21.006806894558203, lng:105.84457902615918},
+            "điểm 35":{lat:21.007070630551056, lng:105.84420023393761},
+            "điểm 36":{lat:21.007240898316, lng:105.84373352959388},
+            "điểm 37":{lat:21.007015543879618, lng:105.84247289142401},
+            "điểm 38":{lat:21.006810220652355, lng:105.84246752700625},
+            "điểm 39":{lat:21.00567795756121, lng:105.84231758609644},
+            "điểm 40":{lat:21.005679728130072, lng:105.84244465883792},
+            "điểm 41":{lat:21.00534927842041, lng:105.84258526782834},
+            "điểm 42":{lat:21.0056172027596, lng:105.84292322614624},
+            "điểm 43":{lat:21.005564619516015, lng:105.84313780285599},
+            "điểm 44":{lat:21.005331750643144, lng:105.84342211699644},
+            "điểm 45":{lat:21.00509007098211, lng:105.84363218500414},
+            "điểm 46":{lat:21.00535211597825, lng:105.84373839506803},
+            "điểm 47":{lat:21.00548136773255, lng:105.84374787810843},
+            "điểm 48":{lat:21.005699147832456, lng:105.84381805260747},
+            "điểm 49":{lat:21.00576997056068, lng:105.84380856956706},
+            "điểm 50":{lat:21.005778823399336, lng:105.84374787810843},
+            "điểm 51":{lat:21.00611890727387, lng:105.84382503822326},
+            "điểm 52":{lat:21.00618972980286, lng:105.84375296711615},
+            "điểm 53":{lat:21.0064181322374, lng:105.84375107051319},
+            "điểm 54":{lat:21.006499577979508, lng:105.84384590091729},
+            "điểm 55":{lat:21.00657394144435, lng:105.8438345212688},
+            "điểm 56":{lat:21.006575712002583, lng:105.84375486372936},
+            "điểm 57":{lat:21.006812966620533, lng:105.84375486372915},
+            "điểm 58":{lat:21.007014809800648, lng:105.84375676033724},
+            "điểm 59":{lat:21.006722668267344, lng:105.8431157068055},
+            "điểm 60":{lat:21.00670142158806, lng:105.84280655968816},
+            "điểm 61":{lat:21.006324292527392, lng:105.84276673091841},
+            "điểm 62":{lat:21.00571521822878, lng:105.84277242074268},
+            "điểm 63":{lat:21.005704594817797, lng:105.84311950002169},
+            "điểm 64":{lat:21.005713447660334, lng:105.84341726749057},
+            "điểm 65":{lat:21.005791352652068, lng:105.84343813017945},
+            "điểm 66":{lat:21.006182647563527, lng:105.84343813017945},
+            "điểm 67":{lat:21.00655269474839, lng:105.84343244035522},
+            "điểm 68":{lat:21.006696109917765, lng:105.84343433696328},
+            "điểm 69":{lat:21.005115502979418, lng:105.8437382817358},
+            "điểm 70":{lat:21.00505314917899, lng:105.84416971057463},
+            "điểm 71":{lat:21.005047629363975, lng:105.84501786728018},
+            "điểm 72":{lat:21.004768138342886, lng:105.84527403242524},
+            "điểm 73":{lat:21.004357548518836, lng:105.84523681733809},
+            "điểm 74":{lat:21.00664145098621, lng:105.84463289890373},
+            "điểm 75":{lat:21.005711567328813, lng:105.8452304991165},
+            "điểm 76":{lat:21.005294643139056, lng:105.84529338955177},
+            "điểm 77":{lat:21.003924535570558, lng:105.84471261652153},
+            "điểm 78":{lat:21.003924535570558, lng:105.8445451864599},
+            "điểm 79":{lat:21.0038170756237, lng: 105.84453995427047},
+            "ĐIỂM test":{lat:21.00605647563527, lng:105.84343813017945},// Thêm điểm test
+            "điểm 80":{lat:21.006994, lng:105.841901},
+            "điểm 81":{lat:21.007058, lng:105.842065},
+          
+    };
+    var connections = { // ds kề
+             "Tòa C1": ["điểm 1", "điểm 37", "điểm 58", "điểm 59"],
+            "Tòa C2": ["điểm 5","điểm 38", "điểm 40", "điểm 61","Tòa C9"],
+            "Tòa C9": ["điểm 40","Tòa C2"],
+            "Tòa D4": ["điểm 13"],
+            "Tòa D6": ["điểm 13"],
+            "Tòa D8": ["điểm 13"],
+            "Tòa C3": ["điểm 33", "điểm 55"],
+            "Tòa C4": ["điểm 31","điểm 52"],
+            "Tòa C5": ["điểm 28","điểm 49"],
+            "Tòa C10": ["điểm 47"],
+            "Thư Viện": ["điểm 70"],
+            "Tòa D9": ["điểm 19","điểm 79"],
+            "Tòa C6": ["điểm 74"],
+            "Tòa C7": ["điểm 71","điểm 76"],
+            "Tòa C8": ["điểm 30"],
+            "Tòa D3": ["điểm 22", "điểm 71", "điểm 72"],
+            "Tòa D5": ["điểm 22", "điểm 73"],
+            "Tòa D3-5": ["điểm 72", "điểm 73"],
+            "Tòa D7": ["điểm 20","điểm 77"],
+            "điểm 1": ["điểm 2", "điểm 36", " Tòa C1"],
+            "điểm 2": ["điểm 1", "điểm 3"],
+            "điểm 3": ["điểm 2","điểm 81"],
+            "điểm 4": ["điểm 5","điểm 80"],
+            "điểm 5": ["điểm 4", "điểm 6", "Tòa C2"],
+            "điểm 6": ["điểm 5", "điểm 7", "điểm 39"],
+            "điểm 7": ["điểm 6",  "điểm 8"],
+            "điểm 8": ["điểm 7", "điểm 9", "điểm 41"],
+            "điểm 9": ["điểm 8", "điểm 10"],
+            "điểm 10": ["điểm 9", "điểm 11", "điểm 18", "điểm 45"],
+            "điểm 11": ["điểm 10", "điểm 12", "điểm 17"],
+            "điểm 12": ["điểm 11", "điểm 13", "điểm 14"],
+            "điểm 13": ["điểm 12", "Tòa D4", "Tòa D6", "Tòa D8"],
+            "điểm 14": ["điểm 12", "điểm 15"],
+            "điểm 15": ["điểm 14", "điểm 16"],
+            "điểm 16": ["điểm 15", "điểm 17", "điểm 19"],
+            "điểm 17": ["điểm 11", "điểm 16", "điểm 18"],
+            "điểm 18": ["điểm 10", "điểm 17", "điểm 45", "điểm 70"],
+            "điểm 19": ["điểm 16", "điểm 20", "Tòa D9"],
+            "điểm 20": ["điểm 19", "điểm 21", "Tòa D7"],
+            "điểm 21": ["điểm 20", "điểm 22", "điểm 25"],
+            "điểm 22": ["điểm 21","điểm 23", "Tòa D3","Tòa D5"],
+            "điểm 23": ["điểm 22", "điểm 24"],
+            "điểm 24": ["điểm 23", "điểm 71"],
+            "điểm 25": ["điểm 21", "điểm 26", "điểm 70", "điểm 71"],
+            "điểm 26": ["điểm 25", "điểm 27", "điểm 28", "điểm 29"],
+            "điểm 27": ["điểm 26", "điểm 75"],
+            "điểm 75": ["điểm 76","điểm 27"],
+            "điểm 76": ["điểm 75","Tòa C7"],
+            "điểm 28": ["điểm 26", "điểm 48", "Tòa C5"],
+            "điểm 29": ["điểm 26", "điểm 30", "điểm 31", "điểm 32"],
+            "điểm 30": ["Tòa C8"],
+            "điểm 31": ["điểm 29", "điểm 51", "Tòa C4"],
+            "điểm 32": ["điểm 29", "điểm 33", "điểm 74"],
+            "điểm 33": ["điểm 32", "điểm 54","Tòa C3"],
+            "điểm 34": ["điểm 35", "điểm 74"],
+            "điểm 74": ["điểm 34","điểm 32","Tòa C6"],
+            "điểm 35": ["điểm 34", "điểm 36"],
+            "điểm 36": ["điểm 1", "điểm 35", "điểm 58"],
+            "điểm 37": ["điểm 38", "Tòa C1"],
+            "điểm 38": ["điểm 37", "Tòa C2"],
+            "điểm 39": ["điểm 6","điểm 40","điểm 41"],
+            "điểm 40": ["điểm 39", "điểm 62","Tòa C9"],
+            "điểm 41": ["điểm 8", "điểm 39", "điểm 42"],
+            "điểm 42": ["điểm 41", "điểm 43"],
+            "điểm 43": ["điểm 42", "điểm 44", "điểm 63"],
+            "điểm 44": ["điểm 43", "điểm 45"],
+            "điểm 45": ["điểm 10", "điểm 18", "điểm 44", "điểm 69"],
+            "điểm 46": ["điểm 47","điểm 69"],
+            "điểm 47": ["điểm 46", "điểm 50", "Tòa C10"],
+            "điểm 48": ["điểm 28", "điểm 49"],
+            "điểm 49": ["điểm 48", "điểm 50", "Tòa C5"],
+            "điểm 50": ["điểm 47", "điểm 49", "điểm 65"],
+            "điểm 51": ["điểm 31", "điểm 52"],
+            "điểm 52": ["điểm 51", "điểm 53", "điểm 66", "Tòa C4"],
+            "điểm 53": ["điểm 52", "điểm 56"],
+            "điểm 54": ["điểm 55", "điểm 33"],
+            "điểm 55": ["điểm 54", "điểm 56", "Tòa C3"],
+            "điểm 56": ["điểm 53", "điểm 55", "điểm 57","điểm 67"],
+            "điểm 57": ["điểm 56", "điểm 58"],
+            "điểm 58": ["điểm 36", "điểm 57", "Tòa C1"],
+            "điểm 59": ["điểm 60", "điểm 68", "Tòa C1"],
+            "điểm 60": ["điểm 59", "điểm 61"],
+            "điểm 61": ["điểm 60", "điểm 62", "Tòa C2"],
+            "điểm 62": ["điểm 40", "điểm 61", "điểm 63"],
+            "điểm 63": ["điểm 43", "điểm 62", "điểm 64"],
+            "điểm 64": ["điểm 63", "điểm 65"],
+            "điểm 65": ["điểm 50", "điểm 64", "ĐIỂM test"],
+            "điểm 66": ["điểm 52", "ĐIỂM test", "điểm 67"],
+            "điểm 67": ["điểm 56", "điểm 66", "điểm 68"],
+            "điểm 68": ["điểm 59", "điểm 67"],
+            "điểm 69": ["điểm 45", "điểm 46","điểm 70"],
+            "điểm 70": ["điểm 18", "điểm 25","điểm 69","Thư Viện"],
+            "điểm 71": ["điểm 24","điểm 25", "Tòa D3","Tòa C7"],
+            "điểm 72": ["Tòa D3", "Tòa D3-5"],
+            "điểm 73": ["Tòa D5","Tòa D3-5"],
+            "điểm 77":["Tòa D7", "điểm 78"],
+            "điểm 78":["điểm 77","điểm 79"],
+            "điểm 79":["điểm 78","Tòa D9"],
+            "ĐIỂM test":["điểm 65", "điểm 66"],
+            "điểm 80":["điểm 81", "điểm 4"],
+            "điểm 81":["điểm 80", "điểm 3"],
+    };
+
+    // ============================================
+    // == BIẾN TòaN CỤC VÀ TRẠNG THÁI           ==
+    // ============================================
+    var map;
+    var markers = [];
+    var currentPolyline = null;
+    var startCoord = null;
+    var endCoord = null;
+    var startNode = null;
+    var endNode = null;
+    var selectingStart = true;
+    var clickMarkers = [];
+    var isGeometryLibraryLoaded = false; // Biến kiểm tra thư viện geometry
+
+    // ============================================
+    // == KHỞI TẠO BẢN ĐỒ                    ==
+    // ============================================
+    function initMap() {
+        try {
+            // Kiểm tra xem thư viện geometry có thực sự được tải không
+            if (google.maps.geometry) {
+                isGeometryLibraryLoaded = true;
+                console.log("Geometry library seems to be loaded.");
+            } else {
+                isGeometryLibraryLoaded = false;
+                console.warn("Geometry library FAILED to load. Distance calculations might be less accurate.");
+                alert("Warning: Unable to load the required Geometry library via gomaps.pro. Distance and path calculations may not be accurate.");
+            }
+
+            var mapOptions = {
+                zoom: 17.5,
+                center: new google.maps.LatLng(21.004365, 105.843653),
+            };
+
+            map = new google.maps.Map(document.getElementById('map'), mapOptions);
+            console.log("Map object created:", map);
+
+            map.addListener('click', handleMapClick);
+
+            // (Tùy chọn) Vẽ các node lên bản đồ
+            // drawAllNodes();
+
+        } catch (error) {
+            console.error("Error during map initialization:", error);
+            displayError("Lỗi khởi tạo bản đồ. Vui lòng kiểm tra Console (F12) và key gomaps.pro.");
+        }
+       // Vẽ tất cả các node khi khởi tạo
+       
+    }
+
+    // (Tùy chọn) Hàm vẽ tất cả các node
+    function drawAllNodes() {
+    for (const [name, coord] of Object.entries(locations)) {
+        const marker = new google.maps.Marker({
+            position: coord,
+            map,
+            title: `${name}\nlat: ${coord.lat.toFixed(6)}, lng: ${coord.lng.toFixed(6)}`,
+            label: {
+                text: name,
+                fontSize: '10px',
+                color: '#000'
+            }
+        });
+        marker.addListener('click', () => {
+            new google.maps.InfoWindow({
+                content: `<b>${name}</b><br>lat: ${coord.lat}<br>lng: ${coord.lng}`
+            }).open(map, marker);
+        });
+    }
+}
+
+    // ============================================
+    // == CÁC HÀM TIỆN ÍCH VÀ THUẬT TOÁN       ==
+    // ============================================
+
+    // Hàm tính khoảng cách Harvesine
+    function HaversineDistanceSimple(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Bán kính trái đất ~ mét 
+        const φ1 = lat1 * Math.PI / 180; // đổi sang radian
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180; // hiệu vĩ độ
+        const Δλ = (lon2 - lon1) * Math.PI / 180; // hiệu kinh độ
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Trả về mét (ước lượng)
+    }
+
+     // Hàm tính khoảng cách - Ưu tiên dùng thư viện geometry nếu có
+    function calculateDistance(coord1, coord2) {
+         if (isGeometryLibraryLoaded && google.maps.geometry) {
+             // Dùng hàm chính xác nếu thư viện đã tải
+             return google.maps.geometry.spherical.computeDistanceBetween(coord1, coord2); // Trả về mét
+         } else {
+             // Dùng hàm ước lượng nếu thư viện không tải được
+             console.warn("Using approximate distance calculation (Euclidean/Haversine) as Geometry library is unavailable.");
+             return HaversineDistanceSimple(coord1.lat(), coord1.lng(), coord2.lat(), coord2.lng());
+         }
+    }
+
+    // Hàng đợi ưu tiên (PriorityQueue) - Triển khai bằng Min-Heap không dùng hàm sort
+class PriorityQueue {
+    constructor() {
+        this.heap = [];
+    }
+
+    enqueue(value, priority) { // {node/kc}
+        const node = { value, priority };
+        this.heap.push(node);
+        this._bubbleUp(this.heap.length - 1);
+    }
+
+    _bubbleUp(index) {
+        while (index > 0) {
+            const parent = Math.floor((index - 1) / 2);
+            if (this.heap[index].priority >= this.heap[parent].priority) break;
+            const temp = this.heap[index];
+            this.heap[index] = this.heap[parent]; // sưa đổi vị trí
+            this.heap[parent] = temp;
+            index = parent;
+        }
+    }
+
+    dequeue() {
+        if (this.isEmpty()) return null;
+        const min = this.heap[0];
+        const end = this.heap.pop();
+        if (!this.isEmpty()) {
+            this.heap[0] = end;
+            this._bubbleDown(0);
+        }
+        return min;
+    }
+
+    _bubbleDown(index) {
+        const len = this.heap.length;
+        while (true) {
+            const left = 2 * index + 1;
+            const right = 2 * index + 2;
+            let smallest = index;
+            if (left < len && this.heap[left].priority < this.heap[smallest].priority) {
+                smallest = left;
+            }
+            if (right < len && this.heap[right].priority < this.heap[smallest].priority) {
+                smallest = right;
+            }
+            if (smallest === index) break;
+            [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
+            index = smallest;
+        }
+    }
+
+    isEmpty() {
+        return this.heap.length === 0;
+    }
+}
+
+    // Tạo đồ thị (buildGraph)
+    function buildGraph() {
+    var graph = {};
+
+    // Duyệt qua tất cả các node trong locations
+    for (var loc in locations) {
+        if (!locations.hasOwnProperty(loc)) continue;
+        graph[loc] = [];
+
+        // Lấy danh sách kề (neighbors) nếu có
+        var nbrs = connections[loc] || [];
+        for (var i = 0; i < nbrs.length; i++) {
+            var nbr = nbrs[i].trim();
+            if (!locations[nbr]) {
+                console.warn(`Missing location data: ${nbr}`);
+                continue;
+            }
+            // Tính khoảng cách bằng Haversine (hoặc Euclid đơn giản)
+            var d = HaversineDistanceSimple(
+                locations[loc].lat,
+                locations[loc].lng,
+                locations[nbr].lat,
+                locations[nbr].lng
+            );
+            graph[loc].push({ node: nbr, distance: d });
+        }
+    }
+
+    return graph;
+}
+
+    // Thuật toán Dijkstra 
+    function dijkstra(graph, start, end) { 
+        var distances = {};
+        var previous = {};
+        var nodes = new PriorityQueue();
+
+        for (var node in locations) { // Set khoảng cách ban đầu cho tất cả các node = Infinity
+             if (locations.hasOwnProperty(node)) {
+                 distances[node] = Infinity;
+                 previous[node] = null;
+             }
+        }
+
+        if (locations[start]) { // Cho d[ban đầu ] = 0 nếu start tồn tại
+             distances[start] = 0;
+             nodes.enqueue(start, 0); // Thêm node bắt đầu vào hàng đợi với độ ưu tiên 0 ( kc)
+        } else {
+             console.error("Start node does not exist:", start);
+             return { path: [], distance: Infinity };
+        }
+
+        while (!nodes.isEmpty()) {
+             var dequeuedItem = nodes.dequeue(); // lấy ra node start có độ ưu tiên thấp nhất
+             if (!dequeuedItem) continue;
+             var currentNode = dequeuedItem.value; // set điểm đang set là start
+
+             if (currentNode === end) break;
+             if (!graph[currentNode]) continue;
+
+             for (var neighborData of graph[currentNode]) {
+                 var neighborNode = neighborData.node;
+                 var weight = neighborData.distance;
+
+                 if (!locations[neighborNode]) continue;
+
+                 var dnew = distances[currentNode] + weight;
+
+                 if (dnew < distances[neighborNode]) {
+                     distances[neighborNode] = dnew;
+                     previous[neighborNode] = currentNode;
+                     nodes.enqueue(neighborNode, dnew);
+                 }
+             }
+        }
+
+        // simplified path reconstruction
+    var path = [];
+    for (var node = end; node; node = previous[node]) {
+        path.push(node);
+    }
+    path.reverse();
+    if (path[0] !== start) {
+        return { path: [], distance: Infinity };
+    }
+    return { path, distance: distances[end] };
+    }
+
+    // ============================================
+    // == XỬ LÝ TƯƠNG TÁC NGƯỜI DÙNG           ==
+    // ============================================
+
+    // Hàm tìm node gần nhất - Sử dụng calculateDistance
+    function findNearestNode(coord) {
+        let minDistance = Infinity;
+        let nearestNode = null;
+        if (!coord) return null;
+
+        for (const nodeName in locations) {
+             if (!locations.hasOwnProperty(nodeName)) continue;
+            const nodeLoc = locations[nodeName];
+            const distance = calculateDistance(coord, new google.maps.LatLng(nodeLoc.lat, nodeLoc.lng));
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestNode = nodeName;
+            }
+        }
+        console.log(`Nearest node to (${coord.lat().toFixed(6)}, ${coord.lng().toFixed(6)}) is '${nearestNode}' (Calc Dist: ${minDistance.toFixed(1)}m)`);
+        return nearestNode;
+    }
+
+     // Hàm xử lý sự kiện click chuột lên bản đồ - Giữ nguyên logic
+    function handleMapClick(event) { /* ... giữ nguyên logic từ code trước ... */
+        const clickedCoord = event.latLng;
+        console.log("Map clicked at:", clickedCoord.toString());
+
+        if (!selectingStart && startCoord && endCoord) {
+             console.log("Resetting due to new click after path found.");
+             resetSelection();
+        }
+
+        const markerIndex = selectingStart ? 0 : 1;
+        if (clickMarkers[markerIndex]) {
+             clickMarkers[markerIndex].setMap(null);
+             clickMarkers[markerIndex] = null;
+        }
+
+        const nearestNodeFound = findNearestNode(clickedCoord);
+        if (!nearestNodeFound) {
+            alert("Unable to find any map node near your selected location in the HUST map data.");
+            return;
+        }
+
+        if (selectingStart) {
+             startCoord = clickedCoord;
+             startNode = nearestNodeFound;
+             const startClickMarker = new google.maps.Marker({ /* ... marker config ... */
+                position: startCoord, map: map, title: `Điểm bắt đầu (Click)\nNode gần nhất: ${startNode}`,
+                icon: { url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png', scaledSize: new google.maps.Size(32, 32) }, zIndex: 100
+             });
+             clickMarkers[0] = startClickMarker;
+             document.getElementById("instructions").innerText = `Start point selected (near ${startNode}). Click to select the END point.`;
+             selectingStart = false;
+        } else {
+             endCoord = clickedCoord;
+             endNode = nearestNodeFound;
+              const endClickMarker = new google.maps.Marker({ /* ... marker config ... */
+                position: endCoord, map: map, title: `Điểm kết thúc (Click)\nNode gần nhất: ${endNode}`,
+                icon: { url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png', scaledSize: new google.maps.Size(32, 32) }, zIndex: 100
+             });
+             clickMarkers[1] = endClickMarker;
+             document.getElementById("instructions").innerText = `End point selected (near ${endNode}). Finding path...`;
+             document.getElementById("resetButton").style.display = 'inline';
+             findShortestPathBetweenNodes();
+        }
+    }
+
+    // Hàm Reset lựa chọn - Giữ nguyên logic
+    function resetSelection() { /* ... giữ nguyên logic từ code trước ... */
+        console.log("Resetting selection.");
+        if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
+        removeMarkers();
+        startCoord = null; endCoord = null; startNode = null; endNode = null;
+        selectingStart = true;
+        document.getElementById("output").innerHTML = "Chưa chọn điểm hoặc chưa tìm đường...";
+        document.getElementById("instructions").innerText = "1. Click lên bản đồ để chọn điểm bắt đầu.";
+        document.getElementById("resetButton").style.display = 'none';
+    }
+
+    // Hàm xóa các marker - Giữ nguyên logic
+    function removeMarkers() { /* ... giữ nguyên logic từ code trước ... */
+        for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); } markers = [];
+        for (var i = 0; i < clickMarkers.length; i++) { if(clickMarkers[i]) { clickMarkers[i].setMap(null); } } clickMarkers = [];
+    }
+
+    // ============================================
+    // == VẼ KẾT QUẢ VÀ HIỂN THỊ               ==
+    // ============================================
+
+    // Hàm vẽ đường đi - Giữ nguyên logic
+    function drawPath(path) { /* ... giữ nguyên logic từ code trước ... */
+        if (currentPolyline) { currentPolyline.setMap(null); }
+        var pathCoordinates = path.map(locationName => locations[locationName.trim()]).filter(coord => coord);
+        if (pathCoordinates.length < 2) return;
+        currentPolyline = new google.maps.Polyline({ path: pathCoordinates, geodesic: true, strokeColor: '#0000FF', strokeOpacity: 0.8, strokeWeight: 5, zIndex: 50 });
+        currentPolyline.setMap(map);
+    }
+
+    // Hàm tìm và hiển thị đường đi - Giữ nguyên logic
+    function findShortestPathBetweenNodes() { /* ... giữ nguyên logic từ code trước ... */
+        if (!startNode || !endNode) { /*... handle error ...*/ return; }
+        console.log(`Finding path between '${startNode}' and '${endNode}'`);
+
+        if (startNode === endNode) { /*... handle same node ...*/ return; }
+
+         for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); } markers = []; // Clear previous node markers only
+
+        var startGraphMarker = new google.maps.Marker({ /*... config start node marker ...*/
+            position: locations[startNode], map: map, title: "Điểm bắt đầu (Node gần nhất): " + startNode,
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#0000FF", fillOpacity: 0.8, strokeColor: "white", strokeWeight: 2 }, zIndex: 60
+        });
+        var endGraphMarker = new google.maps.Marker({ /*... config end node marker ...*/
+             position: locations[endNode], map: map, title: "Điểm kết thúc (Node gần nhất): " + endNode,
+             icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#FF00FF", fillOpacity: 0.8, strokeColor: "white", strokeWeight: 2 }, zIndex: 60
+        });
+        markers.push(startGraphMarker, endGraphMarker);
+
+        var graph = buildGraph();
+        var result = dijkstra(graph, startNode, endNode);
+
+        var outputDiv = document.getElementById("output");
+        if (result.distance === Infinity || result.path.length === 0) {
+            outputDiv.innerHTML = `No path found on the HUST graph between node <b>${startNode}</b> and node <b>${endNode}</b>.<br>(Please check 'connections' data or try selecting different points).`;
+            document.getElementById("instructions").innerText = "No path found. Click 'Reset Selection'.";
+        } else {
+            let pathString = result.path.map((node, index) => (index === 0 || index === result.path.length - 1) ? `<b>${node}</b>` : node).join(" → ");
+            outputDiv.innerHTML = `Shortest path between node <b>${startNode}</b> and <b>${endNode}</b>:<br>${pathString}`;
+            outputDiv.innerHTML += `<br>Total distance: <b>${result.distance.toFixed(1)} meters</b> ${!isGeometryLibraryLoaded ? "(approximate)" : ""}`;
+            drawPath(result.path); // Vẽ đường đi trên bản đồ
+            // thêm ước tính thời gian
+            const minutes = result.distance / 80; 
+            outputDiv.innerHTML += `<br>Estimated walking time: <b>${minutes.toFixed(1)} minutes</b> (at 4.8 km/h)`;
+            document.getElementById("instructions").innerText = "Path found! Click 'Reset Selection' to find another route.";
+        }
+        selectingStart = true; // Sẵn sàng cho lần chọn mới
+    }
+
+    // Hàm hiển thị lỗi chung
+    function displayError(message) {
+         document.getElementById('map').innerHTML = `<p style='color:red; text-align:center; padding: 20px;'>${message}</p>`;
+         document.getElementById("instructions").innerText = "Lỗi!";
+         document.getElementById("output").innerHTML = "";
+    }
+
+     // Xử lý lỗi xác thực của gomaps.pro (nếu có)
+    // Lưu ý: Không chắc gomaps.pro có cơ chế callback lỗi chuẩn như Google API không.
+    // Đoạn này có thể không được gọi. Cần kiểm tra Console (F12) là chính.
+    window.gm_authFailure = () => {
+        console.error("gomaps.pro Authentication Failure reported (or standard Google Auth Fail)! Check gomaps.pro key.");
+        displayError("Authentication error! The gomaps.pro key may be invalid or the service is experiencing issues. Check console (F12).");
+    };
+
+</script>
+
+</body>
+</html>
